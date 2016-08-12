@@ -1,55 +1,42 @@
 #include <avr/io.h>
 
-#define MSG_LENGTH 6
-#define MAX_MSG_LEN 20
+#define MAX_MSG_LEN 3
 #define FORWARD_RX_PIN A1
 #define BACKWARD_RX_PIN A2
 #define FORWARD_TX_PIN A3
 #define BACKWARD_TX_PIN A4
 #define ACK 0x10
-#define DEVICE_ID_LEN 3
+#define DEVICE_ID_LEN 1
 
 #define PEER 0x08
 #define MYSELF 0x02
 #define MASTER 0x04
 
 // Addresses
-const char master[] = {0x03, 0x03, 0x03};
-const char identity[] = {0x04, 0x04, 0x04};
-const char everyone[] = {0x01, 0x01, 0x01};
+const char master = 0x03;
+const char identity = 0x04;
+const char everyone = 0x01;
 
 // Commands
-const char SET_ID[] = {0x05};
-const char OPEN_VALVE[] = {0x06};
-const char CLOSE_VALVE[] = {0x07};
-const char IDENTIFY[] = {0x08};
+const char SET_ID = 0x05;
+const char OPEN_VALVE = 0x06;
+const char CLOSE_VALVE = 0x07;
+const char IDENTIFY = 0x08;
 
 class Message {
   public:
-    char* destination;
-    char* message;
-    int messageLength;
+    char destination;
+    char command;
+    char arg;
     
-    Message(char* destination, char* message, int len) {
+    Message(char destination, char command, char arg) {
       this->destination = destination;
-      this->message = message;
-      this->messageLength = len;
-    }
-
-    ~Message(void) {
-      free(this->destination);
-      free(this->message);
+      this->command = command;
+      this->arg = arg;
     }
     
     static Message* parse(char* charArray) {
-      int totalLen = 0;
-      while (charArray[totalLen] != 0x00) totalLen++;
-      
-      char* destination = (char*)malloc(sizeof(char)*DEVICE_ID_LEN);
-      char* message = (char*)malloc(sizeof(char)*(totalLen-DEVICE_ID_LEN));
-      memcpy(destination, charArray, DEVICE_ID_LEN);
-      memcpy(message, charArray+DEVICE_ID_LEN, totalLen-DEVICE_ID_LEN);
-      return new Message(destination, message, totalLen-DEVICE_ID_LEN);
+      return new Message(charArray[0], charArray[1], charArray[2]);      
     }
 };
 
@@ -60,25 +47,18 @@ void setup() {
 
 
 void sendMessage(Message* msg) { 
-  if (compareData(msg->destination, identity, DEVICE_ID_LEN)) {
-    return;
+  switch (msg->destination) {
+    case identity:
+      return;
+    case master:
+      openBackwardTx();
+      break;
+    default:
+      openForwardTx();
   }
-  if (compareData(msg->destination, master, DEVICE_ID_LEN)) {
-    openBackwardTx();
-  } else {
-    openForwardTx();
-  }
-  Serial.write(msg->destination, DEVICE_ID_LEN);
-  Serial.write(msg->message, msg->messageLength);
-}
-
-bool compareData(char* a, char* b, int len) {
-  for (int i = 0; i < len; i++) {
-    if (a[i] != b[i]) {
-      return false;
-    }
-  }
-  return true;
+  Serial.write(msg->destination);
+  Serial.write(msg->command);
+  Serial.write(msg->arg);
 }
 
 void openForwardRx() {
@@ -103,22 +83,20 @@ void openBackwardTx() {
 
 
 void sendAck() {
-  Serial.write(ACK);
+  sendMessage(new Message(master, ACK, 0x00));
 }
 
-char* readMessage() {
-  char message[MAX_MSG_LEN];
-  char lastByteReceived = 1;
+char* readBytes(int numBytesToRead) {
+//  char message[numBytesToRead];
+  char* message = (char*)malloc(sizeof(char)*numBytesToRead);
+  
   int numBytesReceived = 0;
-  while (true) {
+  while (numBytesReceived < numBytesToRead) {
     if (Serial.available() > 0) {
-      lastByteReceived = Serial.read();
-      message[numBytesReceived++] = lastByteReceived;
-      if (lastByteReceived == 0x0 || numBytesReceived == MAX_MSG_LEN - 1) {
-        return message;
-      }
+      message[numBytesReceived++] = Serial.read();
     }
   }
+  return message;
 }
 
 int waitForSynAndLockPort() {
@@ -137,18 +115,17 @@ int waitForSynAndLockPort() {
   }
 }
 
-char getDestinationGroup(char* destination) {
-  if (compareData(destination, everyone, DEVICE_ID_LEN)) {
-    return MYSELF | PEER;
+char getDestinationGroup(char destination) {
+  switch (destination) {
+    case everyone:
+      return MYSELF | PEER;
+    case master:
+      return MASTER;
+    case identity:
+      return MYSELF;
+    default:
+      return PEER;  
   }
-  if (compareData(destination, master, DEVICE_ID_LEN)) {
-    return MASTER;
-  }
-  // Is this message for me, for someone else, or for everyone?
-  if (compareData(destination, identity, DEVICE_ID_LEN)) {
-    return MYSELF;
-  }
-  return PEER;
 }
 
 void processMessage(Message* message) {
@@ -162,14 +139,21 @@ void processMessage(Message* message) {
     sendMessage(message);
   }
   if (destinationGroup & MYSELF) {
-    if (compareData(message->message, SET_ID, message->messageLength)) {
-      Serial.println("SET ID");
-    } else if (compareData(message->message, OPEN_VALVE, message->messageLength)) {
-      Serial.println("OPEN VALVE");      
-    } else if (compareData(message->message, CLOSE_VALVE, message->messageLength)) {
-      Serial.println("CLOSE VALVE");      
-    } else if (compareData(message->message, IDENTIFY, message->messageLength)) {
-      Serial.println("IDENTIFY");   
+    switch (message->command) {
+      case SET_ID:
+        Serial.println("SET ID");
+        break;
+      case OPEN_VALVE:
+        Serial.println("OPEN VALVE");
+        break;
+      case CLOSE_VALVE:
+        Serial.println("CLOSE VALVE");
+        break;
+      case IDENTIFY:
+        Serial.println("IDENTIFY");
+        break;
+      default:
+        Serial.println("UNRECOGNIZED COMMAND");
     }
   }
 }
@@ -177,9 +161,9 @@ void processMessage(Message* message) {
 void loop() {
     waitForSynAndLockPort();
     sendAck();
-    char* messageBytes = readMessage();
+    char* messageBytes = readBytes(MAX_MSG_LEN);
     Message* message = Message::parse(messageBytes);
+    free(messageBytes);
     processMessage(message);
     delete message;
 }
-

@@ -1,5 +1,7 @@
 #include <avr/io.h>
+#include <EEPROM.h>
 
+#define SOFTWARE_VERSION "001"
 #define MAX_MSG_LEN 3
 #define FORWARD_RX_PIN A1
 #define BACKWARD_RX_PIN A2
@@ -12,31 +14,33 @@
 #define MYSELF 0x02
 #define MASTER 0x04
 
+#define IDENTITY_ADDRESS 32
+
 // Addresses
-const char master = 0x03;
-const char identity = 0x04;
-const char everyone = 0x01;
+const int master = 0x03;
+const int identity = 0x04;
+const int everyone = 0x01;
 
 // Commands
-const char SET_ID = 0x05;
-const char OPEN_VALVE = 0x06;
-const char CLOSE_VALVE = 0x07;
-const char IDENTIFY = 0x08;
+const int SET_ID = 0x05;
+const int OPEN_VALVE = 0x06;
+const int CLOSE_VALVE = 0x07;
+const int IDENTIFY = 0x08;
 
 class Message {
   public:
-    char destination;
-    char command;
-    char arg;
+    int destination;
+    int command;
+    int arg;
     
-    Message(char destination, char command, char arg) {
+    Message(int destination, int command, int arg) {
       this->destination = destination;
       this->command = command;
       this->arg = arg;
     }
     
-    static Message* parse(char* charArray) {
-      return new Message(charArray[0], charArray[1], charArray[2]);      
+    static Message* parse(int* intArray) {
+      return new Message(intArray[0], intArray[1], intArray[2]);      
     }
 };
 
@@ -45,6 +49,24 @@ void setup() {
   Serial.begin(9600);
 }
 
+bool hasId() {
+  return ((int)EEPROM.read(IDENTITY_ADDRESS + 1) == SOFTWARE_VERSION[0] &&
+          (int)EEPROM.read(IDENTITY_ADDRESS + 2) == SOFTWARE_VERSION[1] &&
+          (int)EEPROM.read(IDENTITY_ADDRESS + 3) == SOFTWARE_VERSION[2]);
+}
+
+bool setId(int id) {
+  EEPROM.write(IDENTITY_ADDRESS, id);
+  EEPROM.write(IDENTITY_ADDRESS + 1, SOFTWARE_VERSION[0]);
+  EEPROM.write(IDENTITY_ADDRESS + 2, SOFTWARE_VERSION[1]);
+  EEPROM.write(IDENTITY_ADDRESS + 3, SOFTWARE_VERSION[2]);
+
+  return getId() == id;
+}
+
+int getId() {
+  return EEPROM.read(IDENTITY_ADDRESS);
+}
 
 void sendMessage(Message* msg) { 
   switch (msg->destination) {
@@ -86,9 +108,9 @@ void sendAck() {
   sendMessage(new Message(master, ACK, 0x00));
 }
 
-char* readBytes(int numBytesToRead) {
-//  char message[numBytesToRead];
-  char* message = (char*)malloc(sizeof(char)*numBytesToRead);
+int* readBytes(int numBytesToRead) {
+//  int message[numBytesToRead];
+  int* message = (int*)malloc(sizeof(int)*numBytesToRead);
   
   int numBytesReceived = 0;
   while (numBytesReceived < numBytesToRead) {
@@ -115,7 +137,7 @@ int waitForSynAndLockPort() {
   }
 }
 
-char getDestinationGroup(char destination) {
+int getDestinationGroup(int destination) {
   switch (destination) {
     case everyone:
       return MYSELF | PEER;
@@ -129,7 +151,7 @@ char getDestinationGroup(char destination) {
 }
 
 void processMessage(Message* message) {
-  char destinationGroup = getDestinationGroup(message->destination);
+  int destinationGroup = getDestinationGroup(message->destination);
   if (destinationGroup & PEER) {
     // pass it along
     sendMessage(message);
@@ -141,7 +163,11 @@ void processMessage(Message* message) {
   if (destinationGroup & MYSELF) {
     switch (message->command) {
       case SET_ID:
-        Serial.println("SET ID");
+        if (setId(message->arg)) {
+          sendMessage(new Message(master, 0x01, message->arg));
+        } else {
+          sendMessage(new Message(master, 0x01, 0x00));
+        }
         break;
       case OPEN_VALVE:
         Serial.println("OPEN VALVE");
@@ -150,7 +176,11 @@ void processMessage(Message* message) {
         Serial.println("CLOSE VALVE");
         break;
       case IDENTIFY:
-        Serial.println("IDENTIFY");
+        if (hasId()) {
+          sendMessage(new Message(master, 0x01, getId()));
+        } else {
+          sendMessage(new Message(master, 0x01, 0x00));
+        }
         break;
       default:
         Serial.println("UNRECOGNIZED COMMAND");
@@ -161,7 +191,7 @@ void processMessage(Message* message) {
 void loop() {
     waitForSynAndLockPort();
     sendAck();
-    char* messageBytes = readBytes(MAX_MSG_LEN);
+    int* messageBytes = readBytes(MAX_MSG_LEN);
     Message* message = Message::parse(messageBytes);
     free(messageBytes);
     processMessage(message);

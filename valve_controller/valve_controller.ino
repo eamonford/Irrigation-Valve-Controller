@@ -72,10 +72,11 @@ void sendMessage(Message* msg, int identity) {
     openBackwardTx();
   else
     openForwardTx();
-  sendSynAndWaitForAck();
-  Serial.write(msg->destination);
-  Serial.write(msg->command);
-  Serial.write(msg->arg);
+  if (sendSynAndWaitForAck()) {
+    Serial.write(msg->destination);
+    Serial.write(msg->command);
+    Serial.write(msg->arg);
+  }
 }
 
 void openForwardRx() {
@@ -111,11 +112,17 @@ int* readBytes(int numBytesToRead) {
   return message;
 }
 
-void sendSynAndWaitForAck() {
+bool sendSynAndWaitForAck() {
+  int tryCount = 0;
   do {
     Serial.write(SYN);
     delay(200);
+    if (tryCount == 10) {
+      return false;
+    }
+    tryCount++;
   } while (!Serial.available() || Serial.read() != ACK);
+  return true;
 }
 
 int waitForSynAndSendAck() {

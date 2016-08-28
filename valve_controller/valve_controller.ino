@@ -1,3 +1,5 @@
+#include <AltSoftSerial.h>
+
 #include <avr/io.h>
 #include <EEPROM.h>
 
@@ -14,9 +16,12 @@
 
 #define IDENTITY_ADDRESS 32
 
+AltSoftSerial backPort;
+
 // Addresses
 const int MASTER = 0x01;
 const int EVERYONE = 0x00;
+const int FIRST_UNIDENTIFIED = 0x02;
 
 // Commands
 const int SET_ID = 0x05;
@@ -41,9 +46,12 @@ class Message {
     }
 };
 
+AltSoftSerial* activePort;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+  backPort.begin(9600);
 }
 
 bool hasId() {
@@ -66,37 +74,33 @@ int getId() {
 }
 
 void sendMessage(Message* msg, int identity) {
-  if (identity != 0 && msg->destination == identity)
+  if (identity != 0x00 && msg->destination == identity)
     return;
   else if (msg->destination == MASTER)
     openBackwardTx();
   else
     openForwardTx();
   if (sendSynAndWaitForAck()) {
-    Serial.write(msg->destination);
-    Serial.write(msg->command);
-    Serial.write(msg->arg);
+    activePort->write(msg->destination);
+    activePort->write(msg->command);
+    activePort->write(msg->arg);
   }
 }
 
 void openForwardRx() {
-  digitalWrite(FORWARD_TX_PIN, HIGH);
-  digitalWrite(BACKWARD_TX_PIN, LOW);
+    activePort = &((AltSoftSerial&)Serial);
 }
 
 void openBackwardRx() {
-  digitalWrite(FORWARD_TX_PIN, LOW);
-  digitalWrite(BACKWARD_TX_PIN, HIGH);
+    activePort = &backPort;
 }
 
 void openForwardTx() {
-  digitalWrite(FORWARD_RX_PIN, HIGH);
-  digitalWrite(BACKWARD_RX_PIN, LOW);
+    activePort = &((AltSoftSerial&)Serial);
 }
 
 void openBackwardTx() {
-  digitalWrite(FORWARD_TX_PIN, LOW);
-  digitalWrite(BACKWARD_TX_PIN, HIGH);
+    activePort = &backPort;
 }
 
 int* readBytes(int numBytesToRead) {
@@ -105,8 +109,8 @@ int* readBytes(int numBytesToRead) {
   
   int numBytesReceived = 0;
   while (numBytesReceived < numBytesToRead) {
-    if (Serial.available() > 0) {
-      message[numBytesReceived++] = Serial.read();
+    if (activePort->available() > 0) {
+      message[numBytesReceived++] = activePort->read();
     }
   }
   return message;
@@ -115,13 +119,13 @@ int* readBytes(int numBytesToRead) {
 bool sendSynAndWaitForAck() {
   int tryCount = 0;
   do {
-    Serial.write(SYN);
-    delay(200);
-    if (tryCount == 10) {
+    activePort->write(SYN);
+    delay(300);
+    if (tryCount == 30) {
       return false;
     }
     tryCount++;
-  } while (!Serial.available() || Serial.read() != ACK);
+  } while (activePort->available() == 0 || activePort->read() != ACK);
   return true;
 }
 
@@ -134,17 +138,21 @@ int waitForSynAndSendAck() {
       openBackwardRx();
     }
     forward = !forward;
-    delay(300);
-  } while (!Serial.available() || Serial.read() != SYN);
-  Serial.write(ACK);
+    delay(100);
+  } while (activePort->available() == 0 || activePort->read() != SYN);
+  activePort->write(ACK);
 }
 
 bool messageIsForMe(int destination, int id) {
-  return destination == id || destination == EVERYONE;
+  return (id == 0x00 && destination == FIRST_UNIDENTIFIED) ||
+         destination == id || 
+         destination == EVERYONE;
 }
 
 bool shouldForwardMessage(int destination, int id) {
-  return destination == EVERYONE || destination == MASTER || destination != id;
+  return (destination == EVERYONE || 
+         destination == MASTER || 
+         destination != id) && !(id == 0x00 && destination == FIRST_UNIDENTIFIED);
 }
 
 void executeCommand(Message* message, int id) {
@@ -157,21 +165,21 @@ void executeCommand(Message* message, int id) {
         }
         break;
       case OPEN_VALVE:
-        Serial.println("OPEN VALVE");
+        activePort->println("OPEN VALVE");
         break;
       case CLOSE_VALVE:
-        Serial.println("CLOSE VALVE");
+        activePort->println("CLOSE VALVE");
         break;
       case IDENTIFY:
           sendMessage(new Message(MASTER, 0x01, id), id);
         break;
       default:
-        Serial.println("UNRECOGNIZED COMMAND");
+        activePort->println("UNRECOGNIZED COMMAND");
     }
 }
 
 void processMessage(Message* message) {
-  int id = hasId() ? getId() : 0;
+  int id = hasId() ? getId() : 0x00;
   if (messageIsForMe(message->destination, id)) {
     executeCommand(message, id);
   }
@@ -182,10 +190,12 @@ void processMessage(Message* message) {
 
 // Won't speak unless spoken to.
 void loop() {
+  while (true) {
     waitForSynAndSendAck();
     int* messageBytes = readBytes(MAX_MSG_LEN);
     Message* message = Message::parse(messageBytes);
     free(messageBytes);
     processMessage(message);
     delete message;
+  }
 }

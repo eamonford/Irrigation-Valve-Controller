@@ -11,63 +11,67 @@ bool ProtocolController::sendMessage(Message* msg, int identity) {
   // if (DEBUG) { Serial.println("sendMessage()"); }
   if (identity != 0x00 && msg->destination == identity)
     return true;
-  else if (msg->destination == MASTER) {
+
+    Stream* activeComm;
+  if (msg->destination == MASTER) {
     // if (DEBUG) { Serial.println("Message is for MASTER"); }
-    activePort = backPort;
+    activeComm = backComm;
   } else {
     // if (DEBUG) { Serial.println("Message is not for MASTER"); }
-    activePort = &((AltSoftSerial&)Serial);
+    activeComm = frontComm);
   }
-  if (sendSynAndWaitForAck()) {
-    activePort->write(msg->destination);
-    activePort->write(msg->command);
-    activePort->write(msg->arg);
+  if (sendSynAndWaitForAck(activeComm)) {
+    activeComm->write(msg->destination);
+    activeComm->write(msg->command);
+    activeComm->write(msg->arg);
     return true;
   }
   return false;
 }
 
-bool ProtocolController::sendSynAndWaitForAck() {
+bool ProtocolController::sendSynAndWaitForAck(Stream* comm) {
   int tryCount = 0;
   do {
-    activePort->write(SYN);
+    comm->write(SYN);
     delay(100);
     if (tryCount++ == 30) {
       return false;
     }
-  } while (activePort->available() == 0 || activePort->read() != ACK);
+} while (comm->available() == 0 || comm->read() != ACK);
   return true;
 }
 
-void ProtocolController::waitForSynAndSendAck() {
+Stream* ProtocolController::waitForSynAndSendAck() {
   if (DEBUG) { Serial.println("waitForSynAndSendAck()"); }
+  Serial* activeComm;
   bool forward = true;
   do {
     if (forward) {
       if (DEBUG) { Serial.println("Opening forward serial port"); }
-      activePort = frontPort;
+      activeComm = frontComm;
     } else {
       if (DEBUG) { Serial.println("Opening backward serial port"); }
-      activePort = backPort;
+      activeComm = backComm;
     }
     forward = !forward;
     delay(300);
-  } while (activePort->available() == 0 || activePort->read() != SYN);
+  } while (activeComm->available() == 0 || activeComm->read() != SYN);
 
   if (DEBUG) { Serial.println("Received SYN, now sending ACK"); }
-  activePort->write(ACK);
+  activeComm->write(ACK);
   // Eat up any extra SYNs that got sent during the delay
-  while (activePort->available() > 0 && activePort->peek() == SYN) {
-    activePort->read();
+  while (activeComm->available() > 0 && activeComm->peek() == SYN) {
+    activeComm->read();
   }
+  return activeComm;
 }
 
-int* ProtocolController::readBytes(int numBytesToRead) {
+int* ProtocolController::readBytes(Stream* comm, int numBytesToRead) {
   int* message = (int*)malloc(sizeof(int)*numBytesToRead);
   int numBytesReceived = 0;
   while (numBytesReceived < numBytesToRead) {
-    if (activePort->available() > 0) {
-      message[numBytesReceived++] = activePort->read();
+    if (comm->available() > 0) {
+      message[numBytesReceived++] = comm->read();
     }
   }
   return message;

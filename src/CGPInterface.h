@@ -13,3 +13,5 @@ class CGPInterface {
         Stream* frontPort;
         Stream* backPort;
 };
+
+#endif

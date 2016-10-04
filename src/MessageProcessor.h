@@ -2,17 +2,16 @@
 #ifndef MESSAGE_PROCESSOR_H_
 #define MESSAGE_PROCESSOR_H_
 
-#include "HardwareController.cpp"
+#include "ProtocolController.cpp"
 
 class MessageProcessor {
-    public:
-        MessageProcessor(HardwareController* hardwareController);
-        void processMessage(Message* message);
-
     private:
         void executeCommand(Message* message, int id);
+        ProtocolController* protocolController;
 
-        HardwareController* hardwareController;
+    public:
+        MessageProcessor(ProtocolController* protocolController);
+        void processMessage(Message* message);
 };
 
 #endif

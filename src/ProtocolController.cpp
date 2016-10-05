@@ -8,7 +8,7 @@ ProtocolController::ProtocolController(Stream* frontComm, Stream* backComm) {
 
 bool ProtocolController::sendMessage(Message* msg, int identity) {
   // if (DEBUG) { Serial.println("sendMessage()"); }
-  if (identity != 0x00 && msg->destination == identity)
+  if (identity != EVERYONE && msg->destination == identity)
     return true;
 
     Stream* activeComm;
@@ -41,24 +41,24 @@ bool ProtocolController::sendSynAndWaitForAck(Stream* comm) {
 }
 
 Stream* ProtocolController::waitForSynAndSendAck() {
-  if (DEBUG) { Serial.println("waitForSynAndSendAck()"); }
-
+  // if (DEBUG) { Serial.println("waitForSynAndSendAck()"); }
   Stream* activeComm;
-
   bool forward = true;
   do {
     if (forward) {
-      if (DEBUG) { Serial.println("Opening forward serial port"); }
+    //   if (DEBUG) { Serial.println("Opening forward serial port"); }
       activeComm = frontComm;
     } else {
-      if (DEBUG) { Serial.println("Opening backward serial port"); }
+    //   if (DEBUG) { Serial.println("Opening backward serial port"); }
       activeComm = backComm;
     }
     forward = !forward;
+
+    // THIS DELAY MUST BE GREATER THAN THE DELAY BETWEEN SYNS OR HARMONICS MAY BREAK EVERYTHING
     delay(300);
   } while (activeComm->available() == 0 || activeComm->read() != SYN);
 
-  if (DEBUG) { Serial.println("Received SYN, now sending ACK"); }
+  // if (DEBUG) { Serial.println("Received SYN, now sending ACK"); }
   activeComm->write(ACK);
   // Eat up any extra SYNs that got sent during the delay
   while (activeComm->available() > 0 && activeComm->peek() == SYN) {

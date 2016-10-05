@@ -1,7 +1,7 @@
 #include "ProtocolController.h"
 #include "constants.h"
 
-ProtocolController(BoardController* boardController, Stream* frontComm, Stream* backComm) {
+ProtocolController::ProtocolController(BoardController* boardController, Stream* frontComm, Stream* backComm) {
     this->boardController = boardController;
     this->frontComm = frontComm;
     this->backComm = backComm;
@@ -18,7 +18,7 @@ bool ProtocolController::sendMessage(Message* msg, int identity) {
     activeComm = backComm;
   } else {
     // if (DEBUG) { Serial.println("Message is not for MASTER"); }
-    activeComm = frontComm);
+    activeComm = frontComm;
   }
   if (sendSynAndWaitForAck(activeComm)) {
     activeComm->write(msg->destination);
@@ -43,7 +43,9 @@ bool ProtocolController::sendSynAndWaitForAck(Stream* comm) {
 
 Stream* ProtocolController::waitForSynAndSendAck() {
   if (DEBUG) { Serial.println("waitForSynAndSendAck()"); }
-  Serial* activeComm;
+
+  Stream* activeComm;
+
   bool forward = true;
   do {
     if (forward) {
@@ -78,7 +80,7 @@ int* ProtocolController::readBytes(Stream* comm, int numBytesToRead) {
 }
 
 Message* ProtocolController::waitAndGetMessage() {
-    waitForSynAndSendAck();
-    int* messageBytes = readBytes(MAX_MSG_LEN);
+    Stream* activeComm = waitForSynAndSendAck();
+    int* messageBytes = readBytes(activeComm, MAX_MSG_LEN);
     return Message::parse(messageBytes);
 }

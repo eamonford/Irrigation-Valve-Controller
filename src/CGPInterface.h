@@ -10,7 +10,6 @@ class CGPInterface {
         virtual bool sendSynAndWaitForAck(Stream* stream) = 0;
         virtual Stream* waitForSynAndSendAck() = 0;
         virtual int* readBytes(Stream* comm, int numBytesToRead) = 0;
-        virtual Message* waitAndGetMessage() = 0;
 };
 
 #endif

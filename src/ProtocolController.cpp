@@ -1,8 +1,7 @@
 #include "ProtocolController.h"
 #include "constants.h"
 
-ProtocolController::ProtocolController(BoardController* boardController, Stream* frontComm, Stream* backComm) {
-    this->boardController = boardController;
+ProtocolController::ProtocolController(Stream* frontComm, Stream* backComm) {
     this->frontComm = frontComm;
     this->backComm = backComm;
 }
@@ -77,10 +76,4 @@ int* ProtocolController::readBytes(Stream* comm, int numBytesToRead) {
     }
   }
   return message;
-}
-
-Message* ProtocolController::waitAndGetMessage() {
-    Stream* activeComm = waitForSynAndSendAck();
-    int* messageBytes = readBytes(activeComm, MAX_MSG_LEN);
-    return Message::parse(messageBytes);
 }

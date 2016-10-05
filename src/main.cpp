@@ -6,6 +6,7 @@
 #include <avr/io.h>
 #include "constants.h"
 #include "ProtocolController.h"
+#include "BoardController.h"
 
 BoardController* boardController;
 ProtocolController* protocolController;
@@ -16,7 +17,7 @@ void setup() {
     backPort.begin(9600);
     pinMode(VALVE_CONTROL, OUTPUT);
     boardController = new BoardController(VALVE_CONTROL);
-    protocolController = new ProtocolController(boardController, &Serial, &backPort);
+    protocolController = new ProtocolController(&Serial, &backPort);
 }
 
 void executeCommand(Message* message, int id) {
@@ -25,15 +26,15 @@ void executeCommand(Message* message, int id) {
       case SET_ID:
         protocolController->sendMessage(new Message(MASTER,
                                 0x01,
-                                protocolController->boardController->setId(message->arg)?message->arg : 0x00),
+                                boardController->setId(message->arg)?message->arg : 0x00),
                     id);
         break;
       case OPEN_VALVE:
-        protocolController->boardController->openValve();
+        boardController->openValve();
         protocolController->sendMessage(new Message(MASTER, OPEN_VALVE, id), id);
         break;
       case CLOSE_VALVE:
-      protocolController->boardController->closeValve();
+      boardController->closeValve();
         protocolController->sendMessage(new Message(MASTER, CLOSE_VALVE, id), id);
         break;
       case IDENTIFY:
@@ -54,7 +55,7 @@ void processMessage(Message* message) {
     Serial.println("End of message dump");
   }
 
-  int id = protocolController->boardController->hasId() ? protocolController->boardController->getId() : 0x00;
+  int id = boardController->hasId() ? boardController->getId() : 0x00;
   if (message->isForId(id)) {
     executeCommand(message, id);
   }
@@ -69,15 +70,12 @@ void processMessage(Message* message) {
 // Won't speak unless spoken to.
 void loop() {
   while (true) {
-      Message* message = protocolController->waitAndGetMessage();
-      processMessage(message);
-
-    // interface.waitForSynAndSendAck();
-    // int* messageBytes = interface.readBytes(MAX_MSG_LEN);
-    // Message* message = Message::parse(messageBytes);
-    // free(messageBytes);
-    // processMessage(message);
-    // delete message;
+    Stream* comm = protocolController->waitForSynAndSendAck();
+    int* messageBytes = protocolController->readBytes(comm, MAX_MSG_LEN);
+    Message* message = Message::parse(messageBytes);
+    free(messageBytes);
+    processMessage(message);
+    delete message;
   }
 }
 

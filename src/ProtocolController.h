@@ -16,6 +16,9 @@ class ProtocolController : public CGPInterface {
         bool sendSynAndWaitForAck(Stream* stream);
         Stream* waitForSynAndSendAck();
         int* readBytes(Stream* comm, int numBytesToRead);
+
+        Stream* getFrontComm();
+        Stream* getBackComm();
 };
 
 #endif

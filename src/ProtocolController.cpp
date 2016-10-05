@@ -77,3 +77,11 @@ int* ProtocolController::readBytes(Stream* comm, int numBytesToRead) {
   }
   return message;
 }
+
+
+Stream* ProtocolController::getFrontComm() {
+    return frontComm;
+}
+Stream* ProtocolController::getBackComm() {
+    return backComm;
+}

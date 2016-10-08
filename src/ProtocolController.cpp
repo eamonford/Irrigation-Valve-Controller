@@ -54,7 +54,7 @@ Stream* ProtocolController::waitForSynAndSendAck() {
     }
     forward = !forward;
 
-    // THIS DELAY MUST BE GREATER THAN THE DELAY BETWEEN SYNS OR HARMONICS MAY BREAK EVERYTHING
+    // THIS DELAY MUST BE GREATER THAN THE DELAY BETWEEN SYNS OR ELSE HARMONICS MAY BREAK EVERYTHING
     delay(300);
   } while (activeComm->available() == 0 || activeComm->read() != SYN);
 
@@ -66,18 +66,6 @@ Stream* ProtocolController::waitForSynAndSendAck() {
   }
   return activeComm;
 }
-
-int* ProtocolController::readBytes(Stream* comm, int numBytesToRead) {
-  int* message = (int*)malloc(sizeof(int)*numBytesToRead);
-  int numBytesReceived = 0;
-  while (numBytesReceived < numBytesToRead) {
-    if (comm->available() > 0) {
-      message[numBytesReceived++] = comm->read();
-    }
-  }
-  return message;
-}
-
 
 Stream* ProtocolController::getFrontComm() {
     return frontComm;

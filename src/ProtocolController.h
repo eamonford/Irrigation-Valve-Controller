@@ -2,7 +2,7 @@
 #define PROTOCOL_CONTROLLER
 
 #include <Arduino.h>
-#include <CGPInterface.h>
+#include <chain-gang-protocol.h>
 
 class ProtocolController : public CGPInterface {
     private:

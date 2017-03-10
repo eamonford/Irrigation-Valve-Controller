@@ -7,7 +7,7 @@
 #define SOFTWARE_VERSION "001"
 #define DEVICE_ID_LEN 1
 // TODO: change this to the actual valve control pin
-#define VALVE_CONTROL_PIN LED_BUILTIN
+#define VALVE_CONTROL_PIN A3
 
 #define IDENTITY_ADDRESS 32
 

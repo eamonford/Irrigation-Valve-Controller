@@ -1,7 +1,5 @@
 #include "ProtocolController.h"
 
-#define MAX_SYNS 30
-
 ProtocolController::ProtocolController(Stream* newFrontComm, Stream* newBackComm) {
     this->frontComm = newFrontComm;
     this->backComm = newBackComm;
@@ -36,13 +34,11 @@ Stream* ProtocolController::waitForSynAndSendAck() {
     } else {
       activeComm = frontComm;
     }
-    delay(100);
+    delay(30);
   } while (activeComm->available() == 0 || activeComm->read() != SYN);
   activeComm->write(ACK);
   // Eat up any extra SYNs that got sent during the delay
-  while (activeComm->available() > 0 && activeComm->peek() == SYN) {
-    activeComm->read();
-  }
+  while (activeComm->available() > 0 && activeComm->peek() == SYN) activeComm->read();
 }
 
 int* ProtocolController::readBytes(int numBytesToRead) {

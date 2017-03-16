@@ -119,10 +119,7 @@ void processDatagram(Datagram* datagram) {
 // Won't speak unless spoken to.
 void loop() {
   while (true) {
-    Stream* activeComm = protocolController->waitForSynAndSendAck();
-    int* datagramBytes = protocolController->readBytes(activeComm, MAX_MSG_LEN);
-    Datagram* datagram = Datagram::parse(datagramBytes);
-    free(datagramBytes);
+    Datagram* datagram = protocolController->getDatagram();
     processDatagram(datagram);
     delete datagram;
   }

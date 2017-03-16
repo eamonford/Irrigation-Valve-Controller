@@ -66,11 +66,11 @@ void executeCommand(Datagram* datagram, int id) {
         break;
       case OPEN_VALVE:
         digitalWrite(VALVE_CONTROL_PIN, HIGH);
-        protocolController->sendDatagram(new Datagram(MASTER, OPEN_VALVE, 0x01), id);
+        protocolController->sendDatagram(new Datagram(MASTER, OPEN_VALVE, id), id);
         break;
       case CLOSE_VALVE:
         digitalWrite(VALVE_CONTROL_PIN, LOW);
-        protocolController->sendDatagram(new Datagram(MASTER, CLOSE_VALVE, 0x01), id);
+        protocolController->sendDatagram(new Datagram(MASTER, CLOSE_VALVE, id), id);
         break;
       case IDENTIFY:
           protocolController->sendDatagram(new Datagram(MASTER, IDENTIFY, id), id);

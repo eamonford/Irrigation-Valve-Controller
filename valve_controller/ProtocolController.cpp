@@ -12,7 +12,6 @@ bool ProtocolController::sendDatagram(Datagram* msg, int identity) {
   if (identity != EVERYONE && msg->destination == identity)
   // Can't send message to self
     return false;
-    
   if (msg->destination == MASTER)
     activeComm = backComm;
   else
@@ -39,9 +38,6 @@ Stream* ProtocolController::waitForSynAndSendAck() {
   activeComm->write(ACK);
   // Eat up any extra SYNs that got sent during the delay
   while (activeComm->available() > 0 && activeComm->peek() == SYN) activeComm->read();
-}
 
-int* ProtocolController::readBytes(int numBytesToRead) {
-  return CGPInterface::readBytes(activeComm, numBytesToRead);
+  return activeComm;
 }
-

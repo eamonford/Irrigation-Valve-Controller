@@ -59,9 +59,9 @@ void executeCommand(Datagram* datagram, int id) {
   switch (datagram->command) {
       case SET_ID:
         if (setId(datagram->arg)) {
-          protocolController->sendDatagram(new Datagram(MASTER, 0x01, datagram->arg), id);
+          protocolController->sendDatagram(new Datagram(MASTER, SET_ID, datagram->arg), id);
         } else {
-          protocolController->sendDatagram(new Datagram(MASTER, 0x01, 0x00), id);
+          protocolController->sendDatagram(new Datagram(MASTER, SET_ID, 0x00), id);
         }
         break;
       case OPEN_VALVE:
@@ -73,7 +73,7 @@ void executeCommand(Datagram* datagram, int id) {
         protocolController->sendDatagram(new Datagram(MASTER, CLOSE_VALVE, 0x01), id);
         break;
       case IDENTIFY:
-          protocolController->sendDatagram(new Datagram(MASTER, 0x01, id), id);
+          protocolController->sendDatagram(new Datagram(MASTER, IDENTIFY, id), id);
         break;
       default:
 //        activePort->println("UNRECOGNIZED COMMAND");
@@ -81,21 +81,46 @@ void executeCommand(Datagram* datagram, int id) {
     }
 }
 
+/*void flashLED(int milli) {
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(milli);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(milli);
+}
+
+void flashDatagram(Datagram* datagram) {
+  for (int i = 0; i < datagram->destination; i++) {
+    flashLED(500);
+  }
+  flashLED(100);
+  flashLED(100);
+  for (int i = 0; i < datagram->command; i++) {
+    flashLED(500);
+  }
+  flashLED(100);
+  flashLED(100);
+  for (int i = 0; i < datagram->arg; i++) {
+    flashLED(500);
+  }
+}*/
+
 void processDatagram(Datagram* datagram) {
   int id = hasId() ? getId() : EVERYONE;
   if (datagramIsForMe(datagram->destination, id)) {
     executeCommand(datagram, id);
   }
   if (shouldForwardDatagram(datagram->destination, id)) {
-    protocolController->sendDatagram(datagram, id);
+      if (!protocolController->sendDatagram(datagram, id))
+      // The END_OF_CHAIN message may not be received, but hey, not our problem
+      protocolController->sendDatagram(new Datagram(MASTER, END_OF_CHAIN, id), id);
   }
 }
 
 // Won't speak unless spoken to.
 void loop() {
   while (true) {
-    protocolController->waitForSynAndSendAck();
-    int* datagramBytes = protocolController->readBytes(MAX_MSG_LEN);
+    Stream* activeComm = protocolController->waitForSynAndSendAck();
+    int* datagramBytes = protocolController->readBytes(activeComm, MAX_MSG_LEN);
     Datagram* datagram = Datagram::parse(datagramBytes);
     free(datagramBytes);
     processDatagram(datagram);

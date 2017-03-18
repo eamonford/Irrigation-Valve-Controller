@@ -9,8 +9,8 @@ class ProtocolController : public CGPInterface {
         Stream* backComm;
     public:
         ProtocolController(Stream* newFrontComm, Stream* newBackComm);
-        bool sendDatagram(Datagram* msg, int identity);
-        Datagram* getDatagram();
+        void sendDatagram(Datagram* msg, int identity);
+        Datagram* getDatagram(int timeout);
 };
 
 #endif

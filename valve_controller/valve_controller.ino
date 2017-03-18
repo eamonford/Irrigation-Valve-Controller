@@ -81,45 +81,22 @@ void executeCommand(Datagram* datagram, int id) {
     }
 }
 
-/*void flashLED(int milli) {
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(milli);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(milli);
-}
-
-void flashDatagram(Datagram* datagram) {
-  for (int i = 0; i < datagram->destination; i++) {
-    flashLED(500);
-  }
-  flashLED(100);
-  flashLED(100);
-  for (int i = 0; i < datagram->command; i++) {
-    flashLED(500);
-  }
-  flashLED(100);
-  flashLED(100);
-  for (int i = 0; i < datagram->arg; i++) {
-    flashLED(500);
-  }
-}*/
-
 void processDatagram(Datagram* datagram) {
+//  flashDatagram(datagram);
   int id = hasId() ? getId() : EVERYONE;
   if (datagramIsForMe(datagram->destination, id)) {
     executeCommand(datagram, id);
   }
   if (shouldForwardDatagram(datagram->destination, id)) {
-      if (!protocolController->sendDatagram(datagram, id))
-      // The END_OF_CHAIN message may not be received, but hey, not our problem
-      protocolController->sendDatagram(new Datagram(MASTER, END_OF_CHAIN, id), id);
+      protocolController->sendDatagram(datagram, id);
+//      protocolController->sendDatagram(new Datagram(MASTER, END_OF_CHAIN, id), id);
   }
 }
 
 // Won't speak unless spoken to.
 void loop() {
   while (true) {
-    Datagram* datagram = protocolController->getDatagram();
+    Datagram* datagram = protocolController->getDatagram(0);
     processDatagram(datagram);
     delete datagram;
   }

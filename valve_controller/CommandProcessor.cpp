@@ -1,12 +1,12 @@
 #include "CommandProcessor.h"
-
+#include "Debug.h"
 
 CommandProcessor::CommandProcessor(int valveControlPin, Stream* towardMaster, Stream* awayFromMaster) {
   this->hardwareController = new HardwareController(valveControlPin);
   Stream** streams = (Stream**)malloc(sizeof(Stream*)*2);
   streams[0] = towardMaster;
   streams[1] = awayFromMaster;
-  
+
   this->cgp = new CGP(2, streams, this);
 }
 
@@ -21,7 +21,7 @@ void CommandProcessor::executeCommand(Datagram* datagram, int id) {
         break;
       case OPEN_VALVE:
         hardwareController->openValve();
-        cgp->sendDatagram(new Datagram(MASTER, OPEN_VALVE, id)); 
+        cgp->sendDatagram(new Datagram(MASTER, OPEN_VALVE, id));
         break;
       case CLOSE_VALVE:
         hardwareController->closeValve();
@@ -40,13 +40,17 @@ void CommandProcessor::getAndProcessDatagram() {
 }
 
 void CommandProcessor::processDatagram(Datagram* datagram) {
+  #if DEBUG == true
+    Debug::flashDatagram(datagram);
+  #endif
+
   if (hardwareController->datagramIsForMe(datagram->destination)) {
     executeCommand(datagram, hardwareController->getIdOrElse(EVERYONE));
   }
 }
 
 int CommandProcessor::getStreamIndexForDatagram(Datagram* datagram) {
-  int identity = hardwareController->getIdOrElse(EVERYONE); 
+  int identity = hardwareController->getIdOrElse(EVERYONE);
   if (identity != EVERYONE && datagram->destination == identity)
     return -1;
   return datagram->destination == MASTER ? 0 : 1;
@@ -55,7 +59,7 @@ int CommandProcessor::getStreamIndexForDatagram(Datagram* datagram) {
 bool CommandProcessor::shouldForwardDatagram(Datagram* datagram) {
   int id = hardwareController->getIdOrElse(EVERYONE);
   int destination = datagram->destination;
-   return (destination == EVERYONE || 
-       destination == MASTER || 
+   return (destination == EVERYONE ||
+       destination == MASTER ||
        destination != id) && !(id == EVERYONE && destination == FIRST_UNIDENTIFIED);
 }
